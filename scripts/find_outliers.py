@@ -6,7 +6,7 @@ Run as:
 """
 
 import sys
-
+import os
 def find_outliers(data_directory):
     """ Print filenames and outlier indices for images in `data_directory`.
 
@@ -21,8 +21,18 @@ def find_outliers(data_directory):
     -------
     None
     """
+    path_cwd=os.getcwd()
+    path=os.path.join(path_cwd,data_directory)
+    os.chdir(path)
+    print("Please select the method for outlier detection.")
+    print("1: statistical (parametric) test")
+    print("2: distance (non-parametric) based approach")
+    print("3: Density based approach")
+    print("4: High demiension adapted approach")
+    method=input(">")
+    
     # Your code here
-    raise RuntimeError('No code yet')
+    # raise RuntimeError('No code yet')
 
 
 def main():
