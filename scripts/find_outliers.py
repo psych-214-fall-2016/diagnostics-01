@@ -7,6 +7,9 @@ Run as:
 
 import sys
 import os
+import numpy as np
+import matplotlib.pyplot as plt
+import nibabel as nib
 def find_outliers(data_directory):
     """ Print filenames and outlier indices for images in `data_directory`.
 
@@ -24,13 +27,54 @@ def find_outliers(data_directory):
     path_cwd=os.getcwd()
     path=os.path.join(path_cwd,data_directory)
     os.chdir(path)
-    print("Please select the method for outlier detection.")
+    img=nib.load('group01_sub01_run1.nii', mmap=False)
+    data=img.get_data()
+    t=data.shape[-1]   #time points
+    N=len(data[...,0].ravel()) #The number of voxels per volume
+
+    print("Please select th)e method for outlier detection.")
     print("1: statistical (parametric) test")
     print("2: distance (non-parametric) based approach")
-    print("3: Density based approach")
+    print("3: Density (Cluster) based approach")
     print("4: High demiension adapted approach")
     method=input(">")
-    
+    print('Your selected method is ', method)
+    # print(type(method))
+    if int(method) == 1:
+        Mohalanobis_distance=[]
+        for i in range(t):
+            # Z=data.shape[2]
+            # for j in range(Z):
+            #     print('Peiwu')
+            X=data[:,:,:,i].ravel()
+            unscaled_cov=X.dot(X.T) #This is covariance matrix for each volume
+            # Mohalanobis distance for each multivariate data points i=1...., n is
+            # denoted by Mi and given by:
+            mean_4d=np.mean(data)
+            X_mean_sub=X-mean_4d
+            X_mean_unscaled_cov=X_mean_sub.T.dot(unscaled_cov)
+            X_mean_cov=X_mean_unscaled_cov.dot(X_mean_sub)
+            Mohalanobis_distance.append(np.sqrt(X_mean_cov))
+        Mohalanobis_array=np.array(Mohalanobis_distance)
+        # print("The shape of Mohalanobis_array is", Mohalanobis_array.shape)
+        # The volume that has higher Mohalanobis index can be regarded as outliers
+        max_i=np.argmax(Mohalanobis_array)
+        outliers_array=Mohalanobis_array < Mohalanobis_array[max_i]
+        plt.figure(1)
+        plt.plot(Mohalanobis_array)
+        plt.show()
+        # print(outliers_array)
+        data_remove_outliers=data[...,outliers_array]
+        return data_remove_outliers
+
+    elif int(method) == 2:
+        print(method)
+    elif int(method) == 3:
+        print(method)
+    elif int(method) == 4:
+        print(method)
+    else:
+        RuntimeError("please make a resonable choice")
     # Your code here
     # raise RuntimeError('No code yet')
 
