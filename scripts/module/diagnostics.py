@@ -54,6 +54,15 @@ def extend_diff_outliers(diff_indices):
         ``diff_indices``.  For example, if the input was ``[3, 7, 8, 12, 20]``,
         ``[3, 4, 7, 8, 9, 12, 13, 20, 21]``. """
 
+    # for each index
+    for x in diff_indices:
+        # include x + 1 if not already in diff_indices
+        if not x + 1 in diff_indices:
+            diff_indices = np.append(diff_indices, x + 1)
+    # return sorted array of indices
+    diff_indices.sort()
+    return diff_indices
+
 def iqr_outliers(data, iqr_scale=1.5):
     """ Return indices of outliers identified by interquartile range
     Parameters
