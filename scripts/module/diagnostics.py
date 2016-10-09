@@ -38,22 +38,6 @@ def vol_rms_diff(data):
     diff_data_2d = np.reshape(diff_data, (-1, T-1))
     return np.sqrt(np.mean(diff_data_2d ** 2, axis=0))
 
-def extend_diff_outliers(diff_indices):
-    """ Extend difference-based outlier indices `diff_indices` by pairing
-    Parameters
-    ----------
-    diff_indices : array
-        Array of indices of differences that have been detected as outliers.  A
-        difference index of ``i`` refers to the difference between volume ``i``
-        and volume ``i + 1``.
-    Returns
-    -------
-    extended_indices : array
-        Array where each index ``j`` in `diff_indices has been replaced by two
-        indices, ``j`` and ``j+1``, unless ``j+1`` is present in
-        ``diff_indices``.  For example, if the input was ``[3, 7, 8, 12, 20]``,
-        ``[3, 4, 7, 8, 9, 12, 13, 20, 21]``. """
-
 def iqr_outliers(data, iqr_scale=1.5):
     """ Return indices of outliers identified by interquartile range
     Parameters
