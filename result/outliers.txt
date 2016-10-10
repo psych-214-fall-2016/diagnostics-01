@@ -1,0 +1,45 @@
+Output and Explanation of the find_outliers.py script on group 01 data.
+
+$ python3 scripts/find_outliers.py data
+Output:
+group01_sub01_run1.nii 0, 1, 26, 27, 28, 49, 50, 51, 104, 105, 106, 107, 108, 132, 133, 136, 141, 142, 159, 160
+group01_sub01_run2.nii 23, 24, 49, 50, 51, 100, 101, 102, 103, 104, 105, 106, 107, 122, 129, 130, 145, 146, 148, 149, 150, 155, 157, 159, 160, 161
+group01_sub02_run1.nii 1, 6, 7, 8, 11, 12, 40, 50, 77, 78, 79, 80, 81, 116, 123, 132, 133, 149
+group01_sub02_run2.nii 24, 34, 35, 38, 39, 112, 126, 127, 140, 144, 149, 160
+group01_sub03_run1.nii 2, 23, 54, 56, 63, 64, 75, 76, 134, 135, 136
+group01_sub03_run2.nii 1, 16, 17, 23, 35, 50, 51, 67, 71, 79, 96, 101, 105, 106, 135, 156, 157, 159, 160
+group01_sub04_run1.nii 2, 5, 6, 108, 120, 133, 154, 161
+group01_sub04_run2.nii 0, 12, 13, 14, 23, 24, 26, 51, 52, 54, 132, 133, 134, 135, 139, 140
+group01_sub05_run1.nii 0, 1, 24, 40, 41, 42, 50, 51, 55, 68, 69, 70, 83, 94, 111, 112, 113, 114, 122, 134, 135, 144, 145, 146, 147
+group01_sub05_run2.nii 0, 1, 2, 3, 4, 5, 6, 10, 15, 16, 17, 18, 19, 20, 21, 24, 45, 55, 81, 98, 102, 109, 110, 118, 119, 136, 137, 149, 150
+group01_sub06_run1.nii 0, 22, 30, 67, 74, 75, 76, 80, 81, 99, 101, 102, 103, 104, 141, 144
+group01_sub06_run2.nii 10, 15, 16, 18, 81, 82, 89, 90, 91, 103, 106, 124, 135
+group01_sub07_run1.nii 20, 21, 75, 76, 81, 106, 138, 140, 153
+group01_sub07_run2.nii 9, 10, 45, 46, 47, 49, 50, 52, 69, 70, 76, 77, 78, 79, 100, 101, 103, 104, 105, 106, 121, 131, 132, 133, 157, 158
+group01_sub08_run1.nii 8, 12, 14, 18, 19, 39, 48, 49, 75, 76, 77, 105, 106, 149, 150
+group01_sub08_run2.nii 0, 1, 12, 17, 18, 49, 52, 53, 54, 62, 78, 81, 82, 129, 137
+group01_sub09_run1.nii 12, 22, 23, 24, 54, 55, 75, 76, 77, 78, 79, 80, 81, 121, 122, 123, 124, 129, 130, 131, 133, 135, 136, 137, 139, 140, 156, 159
+group01_sub09_run2.nii 23, 24, 25, 26, 27, 35, 48, 49, 50, 79, 80, 81, 98, 102, 103, 156, 157, 158
+group01_sub10_run1.nii 0, 27, 30, 101, 159
+group01_sub10_run2.nii 103, 135
+
+
+Explanation:
+The find_outliers.py script uses two different outlier detection methods. First,
+the root mean square differences between each volume are calculated. Outliers
+from these values are then defined as those values falling outside 1.5 times the
+interquartile range of the values of the 25th percentile and 75th percentile.
+Second, the principle components of the 4D data are calculated and thresholded
+for the worst 10% components. These components are then used to recreate a "noisy"
+dataset, which is input into a Mahalnobis outlier detector. This detector calculates
+the Mahalnobis distance for each volume in the noisy dataset by the following formula
+D(i) = np.sqrt((X(i) - M).T.dot(S(i) ** -1).dot(X(i) - M)), where X(i) is the
+volume, S(i) is the covariance of X(i), and M is the mean volume of the 4D input.
+Again, the resulting values (Mahalnobis distances) are detected for outliers using
+the interquartile range as described above.
+
+Data can be an outlier for a number of different reasons including artifacts,
+signal dropout, and movement. Our outlier detection should catch most of these
+outliers as it accounts for both changes in signal between volumes (edges are
+susceptible to increased activation from motion) and searches for outliers that
+are less obvious by our second detection method.
