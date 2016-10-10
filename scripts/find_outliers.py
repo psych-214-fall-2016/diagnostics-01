@@ -9,18 +9,19 @@ Run as:
 import sys
 import os
 import numpy as np
+import numpy.linalg as npl
 import matplotlib.pyplot as plt
 import nibabel as nib
 
 # if modules folder, set to sys.path
-if os.path.isdir('modules'):
-    if os.path.abspath('modules') not in sys.path:
+if os.path.isdir('packages'):
+    if os.path.abspath('packages') not in sys.path:
         # add to sys.path
-        sys.path.append(os.path.abspath('modules'))
+        sys.path.append(os.path.abspath('packages'))
 # import detectors
 import detectors as det
 
-def find_outliers(data_path):
+def find_outliers(data_path, plot=False):
     """ Print filenames and outlier indices for images in `data_directory`.
 
     Print filenames and detected outlier indices to the terminal.
@@ -29,7 +30,8 @@ def find_outliers(data_path):
     ----------
     data_path : str
         Directory containing containing images or path to specific file.
-
+    plot : boolean
+        optional choice to plot the result figures for each scan (default does not)
     Returns
     -------
     outliers : data dictionary
@@ -62,22 +64,18 @@ def find_outliers(data_path):
 
         # init outliers
         outliers = []
-        # check for mean outliers
-        vol_mean, tmp = det.mean_detector(data)
-        outliers.extend(tmp)
-        # check for std outliers
-        vol_std, tmp = det.std_detector(data)
-        outliers.extend(tmp)
-        # check for Mahalanobis outliers
-        D, tmp = det.mah_detector(data)
-        outliers.extend(tmp)
+
         # check for rms dvars outliers
         dvars, tmp = det.dvars_detector(data)
         outliers.extend(tmp)
-        # PCA?
+
+        # check for outliers using PCA
+        X_bad, tmp = det.pca_detector(data)
+        outliers.extend(tmp)
 
         # get unique outliers
         outliers = list(set(outliers))
+
         # set data_dict
         data_dict[fileName] = sorted(outliers)
 
@@ -96,8 +94,9 @@ def main():
     data_dict = find_outliers(data_directory)
 
     # print data dictionary of fileNames and outliers
-    for key in data_dict:
-        print(os.path.basename(key), data_dict[key])
+    l_keys = sorted(list(data_dict.keys()))
+    for key in l_keys:
+        print(os.path.basename(key), ', '.join( repr(e) for e in data_dict[key]))
 
 if __name__ == '__main__':
     # Python is running this file as a script, not importing it.
