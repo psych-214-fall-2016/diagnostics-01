@@ -14,14 +14,17 @@ import matplotlib.pyplot as plt
 import nibabel as nib
 
 # if modules folder, set to sys.path
-if os.path.isdir('packages'):
-    if os.path.abspath('packages') not in sys.path:
+func_path, _ = os.path.split(os.path.realpath(sys.argv[0]))
+main_path, _ = os.path.split(func_path)
+pack_path = os.path.join(main_path,'packages')
+if os.path.isdir(pack_path):
+    if pack_path not in sys.path:
         # add to sys.path
-        sys.path.append(os.path.abspath('packages'))
+        sys.path.append(pack_path)
 # import detectors
 import detectors as det
 
-def find_outliers(data_path, plot=False):
+def find_outliers(data_path):
     """ Print filenames and outlier indices for images in `data_directory`.
 
     Print filenames and detected outlier indices to the terminal.
@@ -90,6 +93,7 @@ def main():
         raise RuntimeError("Please give data directory on "
                            "command line")
     data_directory = sys.argv[1]
+
     # Call function to validate data in data directory
     data_dict = find_outliers(data_directory)
 
