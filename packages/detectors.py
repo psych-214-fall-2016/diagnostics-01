@@ -17,44 +17,27 @@ from __future__ import print_function, division
 import numpy as np
 import numpy.linalg as npl
 import matplotlib.pyplot as plt
-
-def afni_detector(data):
-    """
-    """
-    # get number of timepoints and voxels per vol
-    n_vols = data.shape[-1]
-    N = np.prod(data.shape[:-1])
-    # reshape the data
-    data = data.reshape((N, n_vols))
-    # calculate median voxel time series
-    m_data = np.median(data, axis=1)
-    # calculate clip level
-    c = 0.5 * np.median(m_data)
-    # ignore voxels with m_data < c
-    data = data[m_data > c, :]
-    m_data = m_data[m_data > c]
-    m_data = np.outer(m_data, np.ones(161))
-    # calculate Mean absolute deviation (MAD)
-    MAD = np.median(np.abs(data - m_data), axis=1)
-    # set upper and lower thresholds 5 mean absolute deviations
-    u_thr = m_data + 5 * np.outer(MAD, np.ones(161))
-    l_thr = m_data - 5 * np.outer(MAD, np.ones(161))
-    # calculate outlying voxels from u_thr and l_thr
-    n = np.sum(np.logical_or(data > u_thr, data < l_thr), axis=0)
-    # find outlying timepoints
-    outliers = [i for i, x in enumerate(n) if x > np.median(n) + 3.5 * np.median(MAD)]
-    return n, outliers
-
-def spm_global(vol):
-    """
-    """
-    # calculate global mean for data
-    thr = np.mean(vol) / 8
-    # return mean value above thr
-    return np.mean(vol[vol > thr])
+from scipy.stats import norm
 
 def pca_detector(data):
-    """
+    """ Detect outliers by using PCA to create noisy dataset
+    The principle components of the data are calculated, the worst 10%
+    of the principle components are then used to recreate the dataset.
+
+    These data are then passed into the mah_detector function to find
+    outlying timepoints.
+
+    Parameters
+    ----------
+    data : 4D array
+        4D fMRI data
+
+    Returns
+    -------
+    X_bad : 4D array
+        4D data recreated from the worst 10% principle components
+    outliers : 1D array
+        1d array of indices of outlying timepoints
     """
     #- 'vol_shape' is the shape of volumes
     vol_shape = data.shape[:-1]
@@ -64,6 +47,7 @@ def pca_detector(data):
     N = np.prod(vol_shape)
 
     #- Reshape to 2D array that is voxels by volumes (N x n_vols)
+    # transpose to n_vols x N
     X = data.reshape((N, n_vols)).T
 
     """
@@ -72,18 +56,18 @@ def pca_detector(data):
     """
 
     #- Calculate unscaled covariance matrix for X
-    unscaled_covariance = X.dot(X.T)
+    unscaled_cov = X.dot(X.T)
 
     #- Use SVD to return U, S, VT matrices from unscaled covariance
-    #U, S, VT = npl.svd(unscaled_covariance)
-    U, S, VT = npl.svd(unscaled_covariance)
+    U, S, VT = npl.svd(unscaled_cov)
 
     #- Calculate the scalar projections for projecting X onto the vectors in U.
     #- Put the result into a new array C.
     C = U.T.dot(X)
-
+    # set nans to 0
+    C[np.isnan(C)] = 0
     #- Transpose C
-    #- Reshape the first dimension of C to have the 3D shape of the original data volumes.
+    #- Reshape C to have the 4D shape of the original data volumes.
     C_vols = C.T.reshape((vol_shape + (n_vols,)))
 
     """
@@ -125,7 +109,7 @@ def pca_detector(data):
     """
 
     #Create a boolean mask for the 10% worst PCs (meaning highest RMS ratio)
-    PC_bad = np.percentile(RMS_ratio,90)
+    PC_bad = np.percentile(RMS_ratio, 90)
     PC_bad_mask = RMS_ratio > PC_bad
 
     U_bad = U[:, PC_bad_mask]
@@ -139,33 +123,26 @@ def pca_detector(data):
 
     return X_bad, outliers
 
-def pca_lev_detector(data):
-    """
-    """
-    # get number of voxels per volume and n_vols
-    n_vols = data.shape[-1]
-    N = np.prod(data.shape[:-1])
-    # reshape the data
-    X = data.reshape((n_vols, N))
-    # calculate mean of data at each voxel
-    mean_vol = X.mean(axis=0)
-    # subtract mean_vol from X to "center" the data
-    X = X - mean_vol
-    # calculate unscaled covariance
-    unscaled_cov = X.dot(X.T)
-    # reduce dimensionality with svd
-    U, S, VT = npl.svd(unscaled_cov)
-    # calculate the PCA leverage
-    h = np.diag(U.dot(U.T))
-    # calculate median of h
-    # h_med = np.median(h)
-    # # get outliers greater than 3 x median
-    # outliers = [i for i, x in enumerate(h) if x > (3 * h_med)]
-    _, outliers = iqr_detector(h)
-    return h, outliers
-
 def dvars_detector(data):
     """
+    Calculate outliers based on RMS of differences between volumes
+    Each volume is subtracted from the following volume, then the RMS
+    is calculated for each volume difference
+
+    Outliers are then calculated by passing the RMS differences to the
+    iqr_detector function.
+
+    Parameters
+    ----------
+    data : 4D array
+        4D fMRI data
+
+    Returns
+    -------
+    dvars : 1D array
+        1d array of RMS differences of volumes equal in number to timepoints-1
+    outliers : 1D array
+        1d array of indices of outlying timepoints
     """
     # init dvars
     dvars = []
@@ -182,7 +159,28 @@ def dvars_detector(data):
 
 def mah_detector(data):
     """ Detect outliers using Mahalanobis distance:
+    For each volume, the Mahalnobis distance is calculated via the following
+    formula:
 
+    D(t) = sqrt((X(t) - M).T.dot(S(t) ** -1).dot((X(t) - M))
+
+    where X(t) is a volume of data, M is the mean volume of the 4D data, and
+    S(t) is the covariance of X(t)
+
+    The resulting distances (D) are then input into the iqr_detector function,
+    and outliers are returned.
+
+    Parameters
+    ----------
+    data : 4D array
+        4D fMRI data
+
+    Returns
+    -------
+    D : 1D list
+        Mahalanobis distances for each volume
+    outliers : 1D list
+        indices of outlying volumes based on Mahalanobis distances
     """
     # init distance
     D = []
@@ -202,34 +200,6 @@ def mah_detector(data):
     # outliers = [i for i, x in enumerate(D) if x > thr]
     # return distances and outliers
     return D, outliers
-
-def mean_detector(data):
-    """
-    """
-    # init vol_mean
-    vol_mean = []
-    # for each timepoint
-    for i in range(data.shape[-1]):
-        # get spm global mean data
-        vol_mean.append(spm_global(data[...,i]))
-    # get outliers using iqr_detector
-    _, outliers = iqr_detector(vol_mean)
-    # return volume means and outliers
-    return vol_mean, outliers
-
-def std_detector(data):
-    """
-    """
-    # init volume standard deviations
-    vol_std = []
-    # for each timepoint
-    for i in range(data.shape[-1]):
-        # append standard deviation
-        vol_std.append(data[...,i].std())
-    # get outliers using iqr_detector
-    _, outliers = iqr_detector(vol_std)
-    # return volume standard deviations and outliers
-    return vol_std, outliers
 
 def iqr_detector(measures, iqr_proportion=1.5):
     """ Detect outliers in `measures` using interquartile range.
@@ -261,6 +231,8 @@ def iqr_detector(measures, iqr_proportion=1.5):
     outlier_tf : 1D boolean array
         A boolean vector of same length as `measures`, where True means the
         corresponding value in `measures` is an outlier.
+    outlier_i : 1D list
+        Indices of True in outlier_tf (indices of outliers)
     """
     # improt numpy
     import numpy as np
